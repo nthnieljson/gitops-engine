@@ -148,6 +148,7 @@ func TestSyncCreateInSortedOrder(t *testing.T) {
 func TestSyncCustomResources(t *testing.T) {
 	type fields struct {
 		skipDryRunAnnotationPresent bool
+		skipDryRunContext           bool
 		crdAlreadyPresent           bool
 		crdInSameSync               bool
 	}
@@ -160,19 +161,22 @@ func TestSyncCustomResources(t *testing.T) {
 	}{
 
 		{"unknown crd", fields{
-			skipDryRunAnnotationPresent: false, crdAlreadyPresent: false, crdInSameSync: false,
+			skipDryRunAnnotationPresent: false, skipDryRunContext: false, crdAlreadyPresent: false, crdInSameSync: false,
 		}, true, false},
 		{"crd present in same sync", fields{
-			skipDryRunAnnotationPresent: false, crdAlreadyPresent: false, crdInSameSync: true,
+			skipDryRunAnnotationPresent: false, skipDryRunContext: false, crdAlreadyPresent: false, crdInSameSync: true,
 		}, false, true},
 		{"crd is already present in cluster", fields{
-			skipDryRunAnnotationPresent: false, crdAlreadyPresent: true, crdInSameSync: false,
+			skipDryRunAnnotationPresent: false, skipDryRunContext: false, crdAlreadyPresent: true, crdInSameSync: false,
 		}, true, true},
 		{"crd is already present in cluster, skip dry run annotated", fields{
-			skipDryRunAnnotationPresent: true, crdAlreadyPresent: true, crdInSameSync: false,
+			skipDryRunAnnotationPresent: true, skipDryRunContext: false, crdAlreadyPresent: true, crdInSameSync: false,
 		}, true, true},
 		{"unknown crd, skip dry run annotated", fields{
-			skipDryRunAnnotationPresent: true, crdAlreadyPresent: false, crdInSameSync: false,
+			skipDryRunAnnotationPresent: true, skipDryRunContext: false, crdAlreadyPresent: false, crdInSameSync: false,
+		}, false, true},
+		{"unknown crd, skip dry run on context", fields{
+			skipDryRunAnnotationPresent: false, skipDryRunContext: true, crdAlreadyPresent: false, crdInSameSync: false,
 		}, false, true},
 	}
 	for _, tt := range tests {
@@ -209,6 +213,10 @@ func TestSyncCustomResources(t *testing.T) {
 
 			if tt.fields.skipDryRunAnnotationPresent {
 				cr.SetAnnotations(map[string]string{synccommon.AnnotationSyncOptions: "SkipDryRunOnMissingResource=true"})
+			}
+
+			if tt.fields.skipDryRunContext {
+				syncCtx.skipDryRunOnMissingResource = true
 			}
 
 			resources := []*unstructured.Unstructured{cr}
