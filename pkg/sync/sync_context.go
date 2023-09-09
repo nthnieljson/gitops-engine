@@ -195,6 +195,12 @@ func WithServerSideApplyManager(manager string) SyncOpt {
 	}
 }
 
+func WithSkipDryRunOnMissingResource(skipDryRunOnMissingResource bool) SyncOpt {
+	return func(ctx *syncContext) {
+		ctx.skipDryRunOnMissingResource = skipDryRunOnMissingResource
+	}
+}
+
 // NewSyncContext creates new instance of a SyncContext
 func NewSyncContext(
 	revision string,
@@ -329,17 +335,18 @@ type syncContext struct {
 	resourceOps         kube.ResourceOperations
 	namespace           string
 
-	dryRun                 bool
-	force                  bool
-	validate               bool
-	skipHooks              bool
-	resourcesFilter        func(key kube.ResourceKey, target *unstructured.Unstructured, live *unstructured.Unstructured) bool
-	prune                  bool
-	replace                bool
-	serverSideApply        bool
-	serverSideApplyManager string
-	pruneLast              bool
-	prunePropagationPolicy *metav1.DeletionPropagation
+	dryRun                      bool
+	force                       bool
+	validate                    bool
+	skipHooks                   bool
+	resourcesFilter             func(key kube.ResourceKey, target *unstructured.Unstructured, live *unstructured.Unstructured) bool
+	prune                       bool
+	replace                     bool
+	serverSideApply             bool
+	serverSideApplyManager      string
+	pruneLast                   bool
+	prunePropagationPolicy      *metav1.DeletionPropagation
+	skipDryRunOnMissingResource bool
 
 	syncRes   map[string]common.ResourceSyncResult
 	startedAt time.Time
@@ -731,7 +738,8 @@ func (sc *syncContext) getSyncTasks() (_ syncTasks, successful bool) {
 			// then skip verification during `kubectl apply --dry-run` since we expect the CRD
 			// to be created during app synchronization.
 			if apierr.IsNotFound(err) &&
-				((task.targetObj != nil && resourceutil.HasAnnotationOption(task.targetObj, common.AnnotationSyncOptions, common.SyncOptionSkipDryRunOnMissingResource)) ||
+				((task.targetObj != nil &&
+					(sc.skipDryRunOnMissingResource || resourceutil.HasAnnotationOption(task.targetObj, common.AnnotationSyncOptions, common.SyncOptionSkipDryRunOnMissingResource))) ||
 					sc.hasCRDOfGroupKind(task.group(), task.kind())) {
 				sc.log.WithValues("task", task).V(1).Info("Skip dry-run for custom resource")
 				task.skipDryRun = true
